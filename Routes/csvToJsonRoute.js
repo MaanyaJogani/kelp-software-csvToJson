@@ -51,6 +51,24 @@ app.post('/upload', async (req, res) => {
       connection.query('INSERT INTO person SET ?', person);
     });
 
+    let resultAgeGroup = {};
+
+    resultAgeGroup = connection.query(`SELECT 
+        SUM(IF(age<20, 1, 0)) AS '<20',
+        SUM(IF(age BETWEEN 20 AND 40, 1, 0)) AS '20 to 40',
+        SUM(IF(age BETWEEN 40 AND 60, 1, 0)) AS '40 to 60',
+        SUM(IF(age > 60, 1, 0)) AS '>60'
+      FROM person`, function (error, results) {
+      if (error) {
+        console.error(error);
+        res.status(500).send('Server Error');
+      } else if (results) {
+        console.log(results);
+        }
+      });
+    
+    console.log(resultAgeGroup);
+
     res.status(200).send();
   } catch (error) {
     console.error(error);
