@@ -13,14 +13,14 @@ const connection = mysql.createConnection({
   database: 'kelp',
 });
 
+connection.connect();
+
 // Endpoint for converting CSV to JSON and uploading to MySQL
 app.post('/upload', async (req, res) => {
-  try {
-    console.log(process.env.CSV_FILE_PATH); // CSV file path
+  try { // CSV file path
     const csvFilePath = 'D:/MaanyaJogani/Interviews/KelpSoftware/CsvFiles/personDetails.csv'; // CSV file path
     const jsonArray = await csvtojson().fromFile(csvFilePath); // Convert CSV to JSON
 
-    console.log(jsonArray);
     // Map mandatory properties to designated fields and put remaining ones to additional_info field
     const mappedJsonArray = jsonArray.map((data) => {
 
@@ -32,7 +32,7 @@ app.post('/upload', async (req, res) => {
       }
 
       let { name, age, ...additional_info } = { ...data };
-      console.log(name, age, additional_info);
+
       let person = {
         firstName: data.name.firstName,
         lastName: data.name.lastName,
@@ -44,8 +44,6 @@ app.post('/upload', async (req, res) => {
 
     });
 
-    console.log(mappedJsonArray);
-
     // Insert JSON data into MySQL table
     mappedJsonArray.forEach((person) => {
       connection.query('INSERT INTO person SET ?', person);
@@ -53,21 +51,11 @@ app.post('/upload', async (req, res) => {
 
     let resultAgeGroup = {};
 
-    resultAgeGroup = connection.query(`SELECT 
-        SUM(IF(age<20, 1, 0)) AS '<20',
-        SUM(IF(age BETWEEN 20 AND 40, 1, 0)) AS '20 to 40',
-        SUM(IF(age BETWEEN 40 AND 60, 1, 0)) AS '40 to 60',
-        SUM(IF(age > 60, 1, 0)) AS '>60'
-      FROM person`, function (error, results) {
-      if (error) {
-        console.error(error);
-        res.status(500).send('Server Error');
-      } else if (results) {
-        console.log(results);
-        }
-      });
+    resultAgeGroup = await getAgeGroups(connection);
     
     console.log(resultAgeGroup);
+
+    console.table(Object.entries(resultAgeGroup));
 
     res.status(200).send();
   } catch (error) {
@@ -79,3 +67,25 @@ app.post('/upload', async (req, res) => {
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
 });
+
+let getAgeGroups = async (connection) => {
+  try {
+
+    return new Promise(function (resolve, reject) {
+      connection.query(`SELECT 
+        SUM(IF(age<20, 1, 0)) AS '<20',
+        SUM(IF(age BETWEEN 20 AND 40, 1, 0)) AS '20 to 40',
+        SUM(IF(age BETWEEN 40 AND 60, 1, 0)) AS '40 to 60',
+        SUM(IF(age > 60, 1, 0)) AS '>60'
+      FROM person`, function (error, results) {
+        if (error) {
+          reject(error)
+        }
+        resolve(results[0]);
+      });
+    });
+
+  } catch (error) {
+    throw error;
+  }
+}
